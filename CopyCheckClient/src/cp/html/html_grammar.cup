@@ -1,0 +1,176 @@
+package cp.html;
+
+import java_cup.runtime.Symbol;
+import Reporter.Reporter;
+
+parser code
+{:     
+    public void syntax_error(Symbol s){
+        String error = "HTML: Error de sintaxis [ " + s.value + " ]";
+        Reporter.addSyntaxError(error, s.left + 1, s.right + 1);
+    }
+
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception{
+        String error = "[FATAL] HTML: Error de sintaxis [ " + s.value + " ]";
+        Reporter.addSyntaxError(error, s.left + 1, s.right + 1);
+    }
+
+:}
+
+terminal String 
+
+    //OPENING
+    HTML,
+    HEAD,
+    BODY,
+
+    //HEADER TITLE
+    TITLE,
+
+    //HEADERS
+    H1,
+    H2,
+    H3,
+    H4, 
+    H5,
+    H6,
+
+    //TABLE TAGS
+    TABLE,
+    TH,
+    TR,
+    TD,
+
+    //BLOCKS
+    DIV,
+    P,
+    
+    //DIVISIONS
+    BR,
+    HR,
+
+    //ATTRIBUTES
+    COLOR,
+    TEXTCOLOR,
+    ALIGN,
+    FONT,
+
+    //VALUES
+    COLOR_VALUE,
+    ALIGN_VALUE,
+    FONT_VALUE,
+    
+    //SYMBOLS
+    LESS_THAN,
+    GREATER_THAN,
+    CLOSING_LESS_THAN,
+    SLASH_GREATER_THAN,
+    EQUAL ;
+
+//EPSILUM
+nonterminal String 
+    html_start,
+    html_body,
+    head_def,
+    body_def,
+    title_def,
+    body_block,
+    body_block_list,
+    body_statement,
+    headers,
+    table,
+    table_def,
+    table_row_list,
+    table_header,
+    table_header_list,
+    table_row,
+    table_row_content,
+    table_data_list,
+    table_data,
+    p,
+    p_content,
+    br,
+    hr,
+    div,
+    attribute_list,
+    attribute,
+    attributes
+;
+
+nonterminal Symbol epsilum ;
+
+start with html_start;
+
+//INICIAL
+html_start ::= LESS_THAN HTML GREATER_THAN 
+    html_body CLOSING_LESS_THAN HTML GREATER_THAN ;
+
+html_body ::= head_def body_def | head_def | body_def ;
+
+head_def ::= LESS_THAN HEAD GREATER_THAN title_def CLOSING_LESS_THAN HEAD GREATER_THAN
+    | LESS_THAN HEAD GREATER_THAN CLOSING_LESS_THAN HEAD GREATER_THAN;
+
+title_def ::= LESS_THAN TITLE GREATER_THAN CLOSING_LESS_THAN TITLE GREATER_THAN ;
+
+body_def ::= LESS_THAN BODY attributes GREATER_THAN body_block CLOSING_LESS_THAN BODY GREATER_THAN;
+
+body_block ::= body_block_list | epsilum ;
+
+body_block_list ::= body_block_list body_statement | body_statement;
+
+body_statement ::= headers | table | p | br | hr | div 
+    | error GREATER_THAN  
+    | error SLASH_GREATER_THAN ;
+
+headers ::= 
+      LESS_THAN H1 attributes GREATER_THAN CLOSING_LESS_THAN H1 GREATER_THAN 
+    | LESS_THAN H2 attributes GREATER_THAN CLOSING_LESS_THAN H2 GREATER_THAN 
+    | LESS_THAN H3 attributes GREATER_THAN CLOSING_LESS_THAN H3 GREATER_THAN 
+    | LESS_THAN H4 attributes GREATER_THAN CLOSING_LESS_THAN H4 GREATER_THAN 
+    | LESS_THAN H5 attributes GREATER_THAN CLOSING_LESS_THAN H5 GREATER_THAN 
+    | LESS_THAN H6 attributes GREATER_THAN CLOSING_LESS_THAN H6 GREATER_THAN;
+
+table ::= LESS_THAN TABLE attributes GREATER_THAN table_def CLOSING_LESS_THAN TABLE GREATER_THAN;
+
+table_def::= table_row_list | epsilum ;
+
+table_row_list ::= table_row_list table_row | table_row ;
+
+table_row ::= LESS_THAN TR attributes GREATER_THAN table_row_content CLOSING_LESS_THAN TR GREATER_THAN;
+
+table_row_content ::= table_header_list | table_data_list | epsilum;
+
+table_header_list ::= table_header_list table_header | table_header ;
+
+table_header ::= LESS_THAN TH attributes GREATER_THAN CLOSING_LESS_THAN TH GREATER_THAN ;
+
+table_data_list ::= table_data_list table_data 
+    | table_data;
+
+table_data ::= LESS_THAN TD attributes GREATER_THAN CLOSING_LESS_THAN TD GREATER_THAN ;
+
+p ::= LESS_THAN P attributes GREATER_THAN p_content CLOSING_LESS_THAN P GREATER_THAN;
+
+p_content ::= p_content headers | headers | br ;
+
+br ::= LESS_THAN BR SLASH_GREATER_THAN | LESS_THAN BR GREATER_THAN ;
+
+hr ::= LESS_THAN HR SLASH_GREATER_THAN | LESS_THAN HR GREATER_THAN;
+
+div ::= LESS_THAN DIV attributes GREATER_THAN body_block CLOSING_LESS_THAN DIV GREATER_THAN ;
+
+attributes ::= attribute_list | epsilum ;
+
+attribute_list ::= attribute_list attribute | attribute ;
+
+attribute ::= COLOR EQUAL COLOR_VALUE
+    | TEXTCOLOR EQUAL COLOR_VALUE
+    | ALIGN EQUAL ALIGN_VALUE
+    | FONT EQUAL FONT_VALUE ;
+
+//VACÍO
+    
+epsilum ::= /* Vacío... */ 
+{:
+    RESULT = new Symbol(0);
+:} ;

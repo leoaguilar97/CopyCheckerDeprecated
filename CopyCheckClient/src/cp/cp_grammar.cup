@@ -1,0 +1,341 @@
+package cp;
+
+import java_cup.runtime.Symbol;
+import cp.SymTable.SymTable;
+import Reporter.Reporter;
+import java.util.List;
+
+parser code
+{:    
+    String print_result = "";
+
+    public void syntax_error(Symbol s){
+        Reporter.addSyntaxError("CReport: Error de sintaxis [" + s.value + "]", s.left + 1, s.right + 1);
+    }
+
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception { 
+        Reporter.addSyntaxError("[FATAL] CReport: Error de sintaxis [" + s.value + "]",  s.left + 1, s.right + 1);
+    }
+
+    public String getPrintResult(){
+        return print_result;
+    }
+
+    public void setSymTable(SymTable table){
+        this.table = table;
+    }
+
+    SymTable table = new SymTable();  
+   
+    public Object performBoolOperation(Object be, Object bse, String op){
+        try {
+            return table.performBoolOperation(be, bse, op);
+        } catch (Exception ex){
+
+            Symbol curr = (java_cup.runtime.Symbol) stack.peek();
+            int line = curr.left;
+            int col = curr.right;
+
+            Reporter.addSemanticError(ex.getMessage(), line, col);
+
+            return null;
+        }
+    }
+    
+    public Object performOperation(Object op1, Object op2, String operator){
+        try {
+            return table.performOperation(op1, op2, operator);
+        } catch (Exception ex){
+
+            Symbol curr = (java_cup.runtime.Symbol) stack.peek();
+            int line = curr.left;
+            int col = curr.right;
+
+            Reporter.addSemanticError(ex.getMessage(), line, col);
+
+            return null;
+        }
+    }
+
+    public Object performOperation(Object op1, String operator){
+        try {
+            return table.performOperation(op1, operator);
+        } catch (Exception ex){
+
+            Symbol curr = (java_cup.runtime.Symbol) stack.peek();
+            int line = curr.left;
+            int col = curr.right;
+
+            Reporter.addSemanticError(ex.getMessage(), line, col);
+
+            return null;
+        }        
+    }
+
+:}
+
+action code
+{:
+    String curr_type = "";
+    String curr_name = "";
+:}
+
+terminal String
+    
+    //SYMBOLS
+    OPEN_PARENTHESIS, 
+    CLOSING_PARENTHESIS, 
+    COMMA, 
+    SEMICOLON, 
+    EQUAL, 
+
+    //TYPES
+    ENTERO, 
+    BOOLEANO,
+    CARACTER, 
+    DECIMAL, 
+    TEXTO,
+ 
+    //ARITMETHIC OPERATORS
+    AR_SUM, 
+    AR_SUB, 
+    AR_MUL, 
+    AR_DIV,
+    AR_MOD,
+    
+    //BOOLEAN OPERATORS
+    GREATER_THAN, 
+    LESS_THAN, 
+    GREATEQUAL_THAN, 
+    LESSEQUAL_THAN, 
+    NOT_EQUAL,
+    ANDBOP, 
+    ORBOP, 
+    NOTBOP, 
+    BEQUAL,
+    PLUSPLUS,
+    MINUSMINUS,
+    PRINT
+    
+ ;
+
+terminal Object EXPNUMBER, EXPDECIMAL, EXPID, STRING_LITERAL, CHAR_LITERAL, BTRUE, BFALSE ;
+
+nonterminal String  
+    //START
+    initial_state,
+
+    //VARIABLE DECLARATION & INSTANTIATION
+    var_declaration,
+    var_type,
+    var_instantiation,
+    var_equality_operator,
+    var_instantiation_list,
+    var_possible_value,
+    var_call,
+
+    //PRINT
+    print_stmt,
+
+    //EXPRESSIONS
+    exp_var_name,
+
+    //BOOLEANS
+    bool_operator,
+    
+    //STATEMENTS
+    scope_statement,
+    statement,
+    statement_list,
+    epsilum ;
+
+nonterminal Object exp_declaration , exp_value, bool_expression, bool_single_expression;
+
+// ARITMETHIC OPERATION PRECEDENCE
+precedence left GREATER_THAN, GREATEQUAL_THAN, LESS_THAN, LESSEQUAL_THAN, NOT_EQUAL, BEQUAL;
+precedence left AR_SUM, AR_SUB;
+precedence left AR_MUL, AR_DIV;
+precedence left AR_MOD;
+precedence left ANDBOP, ORBOP;
+precedence left OPEN_PARENTHESIS, CLOSING_PARENTHESIS;
+
+precedence right NOTBOP;
+
+start with initial_state;
+
+initial_state ::= scope_statement;
+
+var_declaration ::= var_type:vt {:
+    curr_type = vt;
+:} var_instantiation_list:vil ;
+
+var_instantiation_list ::= var_instantiation_list:vil COMMA var_instantiation:vi 
+    | var_instantiation:vi ;
+
+var_instantiation ::= exp_var_name:evn {:
+    try {
+        table.addSymbol(curr_type, evn);
+        curr_name = evn;
+    } catch(Exception ex){
+        Reporter.addSemanticError(ex.getMessage(), evnleft, evnright);
+    }
+:} EQUAL var_possible_value:vpv | exp_var_name:evn {:
+    try {
+        table.addSymbol(curr_type, evn);
+        curr_name = evn;
+    } catch(Exception ex){
+        Reporter.addSemanticError(ex.getMessage(), evnleft, evnright);
+    }
+:} ;
+
+var_possible_value ::= exp_declaration:ed {:
+    try {
+        table.setValue(curr_name, ed, "=");         
+    } catch(Exception ex){
+        Reporter.addSemanticError(ex.getMessage(), edleft, edright);
+    }
+:} | bool_expression:be {:
+    try {
+        table.setValue(curr_name, be, "=");       
+    } catch(Exception ex){
+        Reporter.addSemanticError(ex.getMessage(), beleft, beright);
+    }
+:} ;
+
+var_call ::= exp_var_name:evn var_equality_operator:veo var_possible_value:vpv {:
+    try {    
+        table.setValue(evn, vpv, veo);      
+    } catch(Exception ex){
+        Reporter.addSemanticError(ex.getMessage(), vpvleft, vpvright);
+    }
+:} | exp_var_name:evn PLUSPLUS {:
+    RESULT = performOperation(evn, "++").toString();
+:} | exp_var_name:evn MINUSMINUS {:
+    RESULT = performOperation(evn, "--").toString();
+:} ;
+
+var_type ::= ENTERO {:
+    RESULT = "entero"; 
+:} | BOOLEANO {:
+    RESULT = "booleano"; 
+:} | CARACTER {:
+    RESULT = "caracter"; 
+:} | DECIMAL {: 
+    RESULT = "decimal"; 
+:} | TEXTO {: 
+    RESULT = "texto"; 
+:} ;
+
+var_equality_operator ::= EQUAL {:
+    RESULT = "=";
+:} | AR_SUM EQUAL {:
+    RESULT = "+=";
+:} | AR_SUB EQUAL {:
+    RESULT = "-=";
+:} | AR_MUL EQUAL {:
+    RESULT = "*=";
+:} | AR_DIV EQUAL {:
+    RESULT = "/=";
+:} | AR_MOD EQUAL {:
+    RESULT = "%=";
+:} ;
+
+exp_declaration ::= exp_declaration:e1 AR_SUM exp_declaration:e2 {:
+    RESULT = performOperation(e1, e2, "+"); 
+:} | exp_declaration:e1 AR_SUB exp_declaration:e2 {: 
+    RESULT = performOperation(e1, e2, "-"); 
+:} | exp_declaration:e1 AR_MUL exp_declaration:e2 {: 
+    RESULT = performOperation(e1, e2, "*"); 
+:} | exp_declaration:e1 AR_DIV exp_declaration:e2 {: 
+    RESULT = performOperation(e1, e2, "/"); 
+:} | exp_declaration:e1 AR_MOD exp_declaration:e2 {: 
+    RESULT = performOperation(e1, e2, "%"); 
+:} | exp_value:n {: 
+    RESULT = n; 
+:} | AR_SUB exp_declaration:e {: 
+    RESULT = performOperation(e, "-"); 
+:} %prec AR_SUB |  OPEN_PARENTHESIS exp_declaration:e CLOSING_PARENTHESIS {: 
+    RESULT = e; 
+:} ;
+
+exp_value ::= exp_var_name:evn {: 
+    try {        
+        RESULT = table.getValue(evn); 
+    } catch (Exception ex){
+        Reporter.addSemanticError(ex.getMessage(), evnleft, evnright);
+        RESULT = null;
+    }
+:} | EXPNUMBER: number {: 
+    RESULT = Integer.parseInt(number.toString());
+:} | EXPDECIMAL: decimal {:
+    RESULT = Double.parseDouble(decimal.toString());
+:} | STRING_LITERAL: sl {:
+    RESULT = (String) sl;
+:} | CHAR_LITERAL:cl {:
+    RESULT = cl.toString().charAt(0);
+:} | exp_var_name:evn PLUSPLUS {:
+    RESULT = performOperation(table.getValue(evn), "++");
+:} | exp_var_name:evn MINUSMINUS {:
+    RESULT = performOperation(table.getValue(evn), "--");
+:} ;
+
+exp_var_name ::= EXPID:id {:
+    RESULT = (String) id;
+:} ;
+
+bool_single_expression ::= exp_declaration:exp bool_operator:bo exp_declaration:exp2 {:
+    RESULT = performOperation(exp, exp2, bo);
+:} | NOTBOP bool_single_expression:be {:
+    RESULT = performOperation(be, "!");
+:} | BTRUE {:
+    RESULT = true;
+:} | BFALSE {:
+    RESULT = false; 
+:} | OPEN_PARENTHESIS bool_single_expression:bse CLOSING_PARENTHESIS {:
+    RESULT = bse;
+:} ;
+
+bool_operator ::= GREATER_THAN {:
+    RESULT = ">";
+:} | GREATEQUAL_THAN {:
+    RESULT = ">=";
+:} | LESS_THAN {:
+    RESULT = "<";
+:} | LESSEQUAL_THAN {:
+    RESULT = "<=";
+:} | NOT_EQUAL {:
+    RESULT = "!=";
+:} | BEQUAL {:
+    RESULT = "==";
+:} ;
+
+bool_expression ::= bool_expression:be ANDBOP bool_expression:bse {:
+    RESULT = performBoolOperation(be, bse, "&&");
+:} | bool_expression:be ORBOP bool_expression:bse {:
+    RESULT = performBoolOperation(be, bse, "||");
+:} | bool_single_expression:bse {:
+    RESULT = bse;
+:} ;
+
+//STATEMENTS
+statement ::= var_declaration:vd SEMICOLON | print_stmt:ps SEMICOLON | var_call:vc SEMICOLON | error SEMICOLON ;
+
+scope_statement ::= statement_list:stml | epsilum ;
+
+statement_list ::= statement_list statement | statement:stmt ;
+
+print_stmt ::= PRINT OPEN_PARENTHESIS exp_declaration:ed CLOSING_PARENTHESIS {:
+    if (ed != null){
+        String res = ed.toString();
+        Reporter.log("PRINT: " + res, false);
+        print_result += res;
+    } else {
+        Reporter.log("[PRINT ERROR] Error semántico: Referencia a variable nula o funcion incorrecta.", true);
+        print_result += "<span style=\"color: red; font-family: consolas; font-size: 12px\" Error </span>";
+    }
+:} ;    
+
+// EPSILUM
+epsilum ::= /* Vacío */ {: 
+    RESULT = "Epsilum"; 
+:} ;

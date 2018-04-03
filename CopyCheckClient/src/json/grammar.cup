@@ -1,0 +1,169 @@
+package json;
+
+import java_cup.runtime.Symbol;
+
+parser code
+{:     
+    public void syntax_error(Symbol s){
+        System.out.println("Syntax error: < " + s.value + " > Line " + (s.left+1) + " Col " + ( s.right + 1) );
+    }
+
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception{ 
+        System.out.println("Fatal Syntax Error: < "+ s.value + " > Linea " + (s.left+1) + " Col " + (s.right + 1) );
+    }
+
+    private JsonVisualizer view;
+
+    public void setJsonVisualizer(JsonVisualizer view){
+        this.view = view;
+    }
+
+    boolean hasName = false;
+    boolean isClosable = true;
+    String currentName = "";
+:}
+
+action code
+{:
+    //contador variables
+:}
+
+terminal String 
+    
+    //SYMBOLS
+    OPEN_BRACES, 
+    CLOSING_BRACES,
+    OPEN_SQR_BRACES,
+    CLOSING_SQR_BRACES,
+    COMMA,
+    DOUBLEPOINT,
+
+    //VALUES 
+    EXPNUMBER,
+    ID,
+    BOOL,
+    NULL_VALUE ;
+
+nonterminal String  
+    //START
+    initial_state,
+    json_document,
+
+    //VALUES
+    json_value,
+    json_value_list,
+
+    //ARRAY
+    json_array,
+    json_array_data,
+
+    //OBJECT
+    json_object,
+    json_object_body,
+    json_property,
+    json_property_list ;    
+
+//EPSILUM
+nonterminal Symbol epsilum ;
+
+start with initial_state;
+
+initial_state ::= json_document:jd {:
+    System.out.println(jd);
+:} ;
+
+json_document ::= json_array:ja {:
+    RESULT = ja;
+:} | json_object:jo {:
+    RESULT = jo;
+:} ;
+
+//VALUES
+json_value ::= ID:id {:
+    RESULT = id;
+    if(hasName) {
+        currentName = id;
+        hasName = false;
+    }
+    else {
+        view.addChild(id);
+    }
+:} | json_object:jo {:
+    RESULT = jo;
+:} | json_array:ja {:
+    RESULT = ja;
+:} | BOOL:bool {:
+    view.addChild(bool);
+    RESULT = bool;
+:} | NULL_VALUE {:
+    view.addChild("null");
+    RESULT = "null";
+:} | EXPNUMBER:numb {:
+    view.addChild(numb);
+    RESULT = numb;
+:} ;
+
+json_value_list ::= json_value_list:jvl COMMA json_value:jv {:
+    RESULT = jvl + ", " + jv;
+:} | json_value:jv {:
+    RESULT = jv;
+:} | error CLOSING_SQR_BRACES
+   | error json_value ;
+
+//ARRAY
+json_array ::= OPEN_SQR_BRACES json_array_data:jad CLOSING_SQR_BRACES {:
+    RESULT = "[" + jad + "]";
+:} ;
+
+json_array_data ::= json_value_list:jvl {:
+    RESULT = jvl;
+:} | epsilum {:
+    RESULT = "";
+:}  ;
+
+//OBJECT
+json_object ::= OPEN_BRACES {:
+    view.addNode("Value"); 
+:} json_object_body:job CLOSING_BRACES {:
+    if (currentName != "") {
+        view.changeCurrentNodeName(currentName);
+        currentName = "";
+    }
+    view.closeNode(true);
+    RESULT = "{\n"  + job + "\n}";
+:} ;
+
+json_object_body ::= json_property_list:pl {:
+    RESULT = pl;
+:} | epsilum {:
+    RESULT = "";
+:} ;
+
+json_property ::= ID:id {:
+    if (id.toLowerCase().equals("nombre") || id.toLowerCase().equals("texto")){
+        hasName = true;
+        isClosable = false;
+    } else {
+        isClosable = true;
+        view.addNode(id);
+    }
+:} DOUBLEPOINT json_value:jv {:
+    if (isClosable) {
+        view.closeNode(false);
+    } 
+    isClosable = true;
+    hasName = false;
+    RESULT = id + " : " + jv;
+:} ;
+
+json_property_list ::= json_property_list:jpl COMMA json_property:jp {:
+    RESULT = jpl + "\n" + jp;
+:} | json_property:jp {:
+    RESULT = jp;
+:} | error COMMA 
+   | error CLOSING_BRACES;
+
+//VACÍO
+epsilum ::= /* Vacío... */ {:
+    RESULT = new Symbol(0);
+:} ;

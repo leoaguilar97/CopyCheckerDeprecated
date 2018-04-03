@@ -1,0 +1,651 @@
+package javacompiler;
+
+import java_cup.runtime.Symbol;
+import proyectdata.Proyect;
+import ui.Reporter;
+
+
+parser code
+{:     
+    private Proyect proyectData = new Proyect();
+    private boolean writeToFunction = false;
+
+    public Proyect getProyectData(){
+        return proyectData;
+    }
+
+    public void setProyect(Proyect p){
+        this.proyectData = p;
+    }
+    public void syntax_error(Symbol s){
+        Reporter.err("Java: No se esperaba el simbolo <" + s.value + "> Linea: " + (s.left+1) + " Col: " + ( s.right + 1) );
+    }
+
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception{ 
+        Reporter.err("[FATAL] Java: No se puede recuperar el simbolo <" + s.value + "> Linea: " + (s.left+1) + " Col: " + (s.right + 1) );
+    }
+:}
+
+action code
+{:
+    private void addProperty(String var_declaration, boolean isLocal, boolean isParameter){        
+        String[] varValues = var_declaration.split(" ");
+        if (varValues.length > 1){
+            if (isLocal) {
+                proyectData.addVar(varValues[0], varValues[1]);
+            } else if(isParameter){
+                proyectData.addParameter(varValues[0], varValues[1]);
+            } else {
+                proyectData.addProperty(varValues[0], varValues[1]);
+            }
+        }
+    } 
+    
+    private void addParameters(String params){
+        String[] paramValues = params.split(",");
+        for(String param: paramValues){
+            addProperty(param, false, true);
+        }
+    }
+
+:}
+
+terminal String 
+    
+    //SYMBOLS
+    OPEN_PARENTHESIS, 
+    CLOSING_PARENTHESIS, 
+    OPEN_BRACES, 
+    CLOSING_BRACES,
+    COMMA, 
+    SEMICOLON, 
+    EQUAL, 
+    DOUBLEPOINT,
+    POINT,
+
+    //IMPORT & CLASSES
+    IMPRT,
+    PCKGE,
+
+    //TYPES
+    INTGR, 
+    BOOLE,
+    CHARA, 
+    DOUBL, 
+    ILONG,
+    STRNG,
+
+    //CLASS DECLARATION
+    CLASSDEC, 
+    NEWDEC,
+    
+    //VISIBILITY
+    PUBVIS,
+    PRIVIS,
+    PROVIS, 
+    
+    //MODIFIERS
+    STATVIS, 
+    FINAL_MOD,
+    VOIDTYPE,
+
+    //CONTROL
+    IFCOND,
+    ELSECOND, 
+    SWITCHCOND, 
+    CASECOND, 
+    WHILELOOP, 
+    FORLOOP, 
+    DOLOOP,
+ 
+    //ARITMETHIC OPERATORS
+    AR_SUM, 
+    AR_SUB, 
+    AR_MUL, 
+    AR_DIV,
+    AR_MOD,
+    
+    //BOOLEAN OPERATORS
+    GREATER_THAN, 
+    LESS_THAN, 
+    GREATEQUAL_THAN, 
+    LESSEQUAL_THAN, 
+    NOT_EQUAL,
+    ANDBOP, 
+    ORBOP, 
+    NOTBOP, 
+    BEQUAL,
+    PLUSPLUS,
+    MINUSMINUS,
+    
+    //VALUES 
+    EXPNUMBER,
+    EXPID,
+    STRING_LITERAL,
+    CHAR_LITERAL,
+    BTRUE,
+    BFALSE,
+
+    //EXIT CONTROLS
+    BREAKCOND,
+    CONTINUECOND,
+    RETRN ;
+
+nonterminal String  
+    //START
+    initial_state,
+
+    //PACKAGE
+    pac_declaration, 
+    doc_declaration,
+    
+    //IMPORTS
+    imp_declaration,
+    imp_list,
+
+    //CLASS DECLARATIONS
+    class_declaration,
+    class_visibility,
+    class_body,
+    class_member,
+    class_member_visibility,
+    class_member_list, 
+    class_member_definition,
+
+    //VARIABLE DECLARATION & INSTANTIATION
+    var_declaration,
+    var_type,
+    var_name_list,
+    var_instantiation,
+    var_asignation,
+    var_equality_operators,
+
+    //FUNCTION DECLARATION
+    func_declaration,
+    func_parameter,
+    func_parameter_list,
+    func_body,
+    func_return,
+    func_call,
+    func_call_parameter,
+    func_call_parameter_list,
+
+    //EXPRESSIONS
+    exp_declaration, 
+    exp_var_name,
+    exp_var_name_list,
+    exp_binary_op,
+    exp_value,  
+        
+    //STATEMENTS
+    scope_statement,
+    statement,
+    statement_list,
+
+    //CONTROLS
+    
+    //IF
+    if_statement,
+    else_statements,
+    else_statement,
+    else_if_statement,
+    else_if_statement_list,
+    
+    //SWITCH
+    switch_statement,
+    switch_body,
+    case_statement_list,
+    case_statement,
+    case_statement_types,
+
+    //FOR LOOP
+    for_statement,
+    for_declarations,
+    for_initialization,
+    for_var_type,
+    for_update,
+
+    //WHILE
+    while_statement,
+
+    //DO WHILE
+    do_while_statement;
+
+    //EPSILUM
+nonterminal Symbol epsilum ;
+
+// ARITMETHIC OPERATION PRECEDENCE
+precedence left GREATER_THAN, GREATEQUAL_THAN, LESS_THAN, LESSEQUAL_THAN, NOT_EQUAL, BEQUAL;
+precedence left AR_SUM, AR_SUB;
+precedence left AR_MUL, AR_DIV;
+precedence left AR_MOD;
+precedence left ANDBOP, ORBOP;
+precedence left OPEN_PARENTHESIS, CLOSING_PARENTHESIS;
+
+start with initial_state;
+
+initial_state ::= pac_declaration:pck doc_declaration:doc 
+{:
+    System.out.println(pck + " " + doc);
+:} ;
+
+//PACKAGE DECLARATION
+pac_declaration ::= PCKGE exp_var_name_list:evnl SEMICOLON {: 
+    RESULT = "package " + evnl + ";\n"; 
+:} | epsilum {:
+    RESULT = "";
+:};
+
+// DOCUMENT DECLARATION
+doc_declaration ::= imp_list:imports class_declaration:cd {: 
+    RESULT = imports + "\n" + cd;
+:} | class_declaration: cd {: 
+    RESULT = cd;
+:};
+
+//IMPORT DECLARATION
+imp_declaration ::= IMPRT exp_var_name_list:evnl SEMICOLON {:
+    RESULT = "import " + evnl + ";";
+:} | IMPRT exp_var_name_list:evnl POINT AR_MUL SEMICOLON {:
+    RESULT = "import " + evnl + ".*;";
+:} ;
+
+imp_list ::= imp_list:il imp_declaration:imp {:
+    RESULT = il + "\n" + imp + "\n";
+:} | imp_declaration:imp {:
+    RESULT = imp + "\n";
+:} ; 
+
+// CLASS Instantiation
+class_declaration ::= class_visibility:vis CLASSDEC exp_var_name:id {:
+    proyectData.addClass(id);
+:} OPEN_BRACES class_body:cb CLOSING_BRACES {:
+    RESULT = vis + " class " + id + "{\n" + cb + "\n}" ;
+:} ;
+
+class_visibility ::= PUBVIS {:
+    RESULT = "public";
+:} | epsilum {:
+    RESULT = "";
+:} ;
+
+class_body ::= class_member_list: cm {:
+    RESULT = cm;
+:} | epsilum {:
+    RESULT = "";
+:};
+ 
+class_member_list ::= class_member_list:cml class_member:cm {:
+    RESULT = cml + "\n" + cm;
+:} | class_member:cm {:
+    RESULT = cm;
+:} ;
+
+class_member ::= class_member_visibility:vis class_member_definition:cmd {:
+    RESULT = vis + " " + cmd;
+:} ;
+
+class_member_visibility ::= PUBVIS {: 
+    RESULT = "public"; 
+:} | PRIVIS {: 
+    RESULT = "private"; 
+:} | PROVIS {: 
+    RESULT = "protected"; 
+:} | epsilum {: 
+    RESULT = ""; 
+:} ;
+
+class_member_definition ::= FINAL_MOD var_declaration:vd {:
+    addProperty(vd, false, false);
+    RESULT = "final " + vd;
+:} | STATVIS var_declaration:vd {:
+    addProperty(vd, false, false);
+    RESULT = "static " + vd;
+:} | FINAL_MOD STATVIS var_declaration:vd {:
+    addProperty(vd, false, false);
+    RESULT = "final static " + vd;
+:} | STATVIS FINAL_MOD var_declaration:vd {:
+    addProperty(vd, false, false);
+    RESULT = "static final " + vd;
+:} | STATVIS func_declaration:fd {:
+    RESULT = "static " + fd;
+:} | func_declaration:fd {:
+    RESULT = fd;
+:} | var_declaration:vd {:
+    addProperty(vd, false, false);
+    RESULT = vd;
+:} ;
+
+//VARIABLE DECLARATION & INSTANTIATION
+var_declaration ::= var_type:vt var_name_list:vnl SEMICOLON {:
+    RESULT = vt + " " + vnl + " ;"; 
+:} | var_type:ty var_name_list:vnl var_instantiation:vi {:    
+    RESULT = ty + " " + vnl + " " + vi; 
+:} ;
+
+var_type ::= INTGR {:
+    RESULT = "int"; 
+:} | BOOLE {:
+    RESULT = "boolean"; 
+:} | CHARA {:
+    RESULT = "char"; 
+:} | DOUBL {: 
+    RESULT = "double"; 
+:} | ILONG {: 
+    RESULT = "long"; 
+:} | STRNG {: 
+    RESULT = "String"; 
+:} | exp_var_name:evn {:
+    RESULT = evn;
+:} ;
+
+var_name_list ::= var_name_list:vnl COMMA exp_var_name:evn {:
+    RESULT = vnl + ", " + evn;
+:} | exp_var_name:evn {: 
+    RESULT = evn; 
+:} ;
+
+var_instantiation ::= EQUAL exp_declaration:exp SEMICOLON {:
+    RESULT = "= " + exp + ";" ; 
+:} | EQUAL NEWDEC func_call:fc {:
+    RESULT = "= new " + fc ;
+:} ; 
+
+var_asignation ::= exp_var_name_list:evn var_equality_operators:veo exp_declaration:ed SEMICOLON {:
+    RESULT = evn + veo + ed + ";";
+:} | exp_var_name_list PLUSPLUS SEMICOLON | exp_var_name_list MINUSMINUS SEMICOLON ;
+
+var_equality_operators ::= EQUAL {:
+    RESULT = "=";
+:} | AR_SUM EQUAL {:
+    RESULT = "+=";
+:} | AR_SUB EQUAL {:
+    RESULT = "-=";
+:} | AR_MUL EQUAL {:
+    RESULT = "*=";
+:} | AR_DIV EQUAL {:
+    RESULT = "/=";
+:} | AR_MOD EQUAL {:
+    RESULT = "%=";
+:} ;
+
+//FUNCTION DECLARATION
+func_declaration ::= var_type:ft exp_var_name:id {:
+    proyectData.addFunction(id, ft);
+:} OPEN_PARENTHESIS func_parameter_list:fpl CLOSING_PARENTHESIS OPEN_BRACES func_body:mb CLOSING_BRACES {:
+    addParameters(fpl);
+    proyectData.resetCurrFunct();
+    RESULT = ft + " " + id + "( " + fpl + " ) " + "{\n" + mb + "\n}";
+:} | VOIDTYPE exp_var_name:id {:
+    proyectData.addFunction(id, "");
+:} OPEN_PARENTHESIS func_parameter_list:fpl CLOSING_PARENTHESIS OPEN_BRACES func_body:mb CLOSING_BRACES {:
+    addParameters(fpl);
+    proyectData.resetCurrFunct();
+    RESULT = "void " + id + "( " + fpl + " ) " + "{\n" + mb + "\n}";
+:} | exp_var_name:id {:
+    proyectData.addFunction(id, "constructor");
+:} OPEN_PARENTHESIS func_parameter_list:fpl CLOSING_PARENTHESIS OPEN_BRACES func_body:mb CLOSING_BRACES {:
+    addParameters(fpl);
+    proyectData.resetCurrFunct();
+    RESULT = id + "( " + fpl + " ) " + "{\n" + mb + "\n}";
+:} ;
+
+func_parameter_list ::= func_parameter_list:fpl COMMA func_parameter:fp {:
+    RESULT = fpl + ", " + fp;
+:} | func_parameter: fp {:
+    RESULT = fp;
+:} | epsilum {:
+    RESULT = "";
+:};
+
+func_parameter ::= var_type:ty exp_var_name:evn {: 
+    RESULT = ty + " " + evn;
+:} ;
+
+func_body ::= statement_list: stmtl {:
+    RESULT = stmtl;
+:} | epsilum {: 
+    RESULT = "//Código vacío..."; 
+:} ;  
+
+func_return ::= RETRN exp_declaration:exp SEMICOLON{:
+    RESULT = "return " + exp;
+:} | RETRN SEMICOLON {:
+    RESULT = "return;";
+:} ;
+
+func_call ::= exp_var_name_list:fcn OPEN_PARENTHESIS func_call_parameter_list:fcpl CLOSING_PARENTHESIS SEMICOLON{:
+    RESULT = fcn + "(" + fcpl + ");"; 
+:} ;
+
+func_call_parameter_list ::= func_call_parameter_list:fcpl COMMA func_call_parameter:fcp {:
+    RESULT = fcpl + ", " + fcp;
+:} | func_call_parameter:fcp {:
+    RESULT = fcp;
+:} | epsilum {:
+    RESULT = "";
+:};
+
+func_call_parameter ::= exp_declaration:exp {:
+    RESULT = exp;
+:} ;
+
+//EXPRESSIONS
+exp_declaration ::= exp_value:val {: 
+    RESULT = val;
+:} | OPEN_PARENTHESIS exp_declaration:exp CLOSING_PARENTHESIS {:
+    RESULT = "(" + exp + ")";
+:} | exp_binary_op:op exp_declaration:exp {:
+    RESULT = op + exp;
+:} | exp_declaration:exp exp_binary_op:op exp_declaration:exp2 {:
+    RESULT = exp + op + exp2;
+:} | AR_SUB exp_declaration:exp {:
+    RESULT = "-" + exp;
+:} | NOTBOP exp_declaration:exp {:
+    RESULT = "!" + exp;
+:};
+
+exp_value ::= exp_var_name:evn {: 
+    RESULT = evn; 
+:} | func_call:fc {:
+    RESULT = fc;
+:} | EXPNUMBER: number {: 
+    RESULT = number;
+:} | STRING_LITERAL: sl {:
+    RESULT = sl;
+:} | CHAR_LITERAL:cl {:
+    RESULT = cl;
+:} | BTRUE {:
+    RESULT = "true";
+:} | BFALSE {:
+    RESULT = "false"; 
+:} | exp_var_name:evn PLUSPLUS {:
+    RESULT = evn + "++";
+:} | PLUSPLUS exp_var_name:evn {:
+    RESULT = "++" + evn;
+:} | exp_var_name:evn MINUSMINUS {:
+    RESULT = evn + "--";
+:} | MINUSMINUS exp_var_name:evn {:
+    RESULT = "--" + evn;
+:} ;
+
+exp_var_name ::= EXPID:id {:
+    RESULT = id;
+:};
+
+exp_var_name_list ::= exp_var_name_list:evnl POINT exp_var_name:evn {:
+    RESULT = evnl + "." + evn;
+:}  | exp_var_name:evn {:
+    RESULT = evn;
+:} ;
+
+exp_binary_op ::= AR_SUM {: 
+    RESULT = "+" ; 
+:} | AR_SUB {: 
+    RESULT = "-"; 
+:} | AR_MUL {: 
+    RESULT = "*";
+:} | AR_DIV {: 
+    RESULT = "/"; 
+:} | AR_MOD {:
+    RESULT = "%";
+:} | GREATER_THAN {:
+    RESULT = ">";
+:} | GREATEQUAL_THAN {:
+    RESULT = ">=";
+:} | LESS_THAN {:
+    RESULT = "<";
+:} | LESSEQUAL_THAN {:
+    RESULT = "<=";
+:} | NOT_EQUAL {:
+    RESULT = "!=";
+:} | BEQUAL {:
+    RESULT = "==";
+:} | ANDBOP {:
+    RESULT = "&&";
+:} | ORBOP {:
+    RESULT = "||";
+:};
+
+//STATEMENTS
+statement ::= func_call:fc {:
+    RESULT = fc;
+:} | var_declaration:vd {:
+    addProperty(vd, true, false);
+    RESULT = vd;
+:} | var_asignation:vd {:
+    RESULT = vd;
+:} | FINAL_MOD var_declaration:vd {:
+    RESULT = "final " + vd;
+:} | func_return:fr {:
+    RESULT = fr;
+:} | if_statement:ib {:
+    RESULT = ib;
+:} | switch_statement:ss {:
+    RESULT = ss;
+:} | for_statement:fs {:
+    RESULT = fs;
+:} | while_statement:ws {:
+    RESULT = ws;
+:} | do_while_statement:dws {:
+    RESULT = dws;
+:} | CONTINUECOND SEMICOLON {:
+    RESULT = "continue;";
+:} | BREAKCOND SEMICOLON {:
+    RESULT = "break;";
+:} ;
+
+scope_statement ::= statement_list:stml {:
+    RESULT = stml;
+:} | epsilum {:
+    RESULT = "";
+:} ;
+
+statement_list ::= statement_list:stmtl statement:stmt {:
+    RESULT = stmtl + "\n" + stmt;
+:} | statement:stmt {:
+    RESULT = stmt;
+:} ;
+
+//IF
+
+if_statement ::= IFCOND OPEN_PARENTHESIS exp_declaration:be CLOSING_PARENTHESIS OPEN_BRACES scope_statement:ss CLOSING_BRACES else_statements:es {:
+    RESULT = "if (" + be + ") {\n" + ss + "\n}" + es;
+:} ;
+
+else_statements ::= else_statement:es {:
+    RESULT = es;
+:} | else_if_statement_list: eisl {:
+    RESULT = eisl;
+:} |  else_if_statement_list: eisl else_statement:es {:
+    RESULT = eisl + "\n" + es;
+:} | epsilum {:
+    RESULT = "";
+:} ;
+
+else_statement ::= ELSECOND OPEN_BRACES scope_statement:ss CLOSING_BRACES{:
+    RESULT = "else {\n" + ss + "\n}";
+:} ;
+
+else_if_statement_list ::= else_if_statement_list:eisl else_if_statement:eis {:
+    RESULT = eisl + "\n" + eis;
+:} | else_if_statement:eis {:
+    RESULT = eis;
+:} ;
+
+else_if_statement ::= ELSECOND IFCOND OPEN_PARENTHESIS exp_declaration:be CLOSING_PARENTHESIS OPEN_BRACES scope_statement:ss CLOSING_BRACES {:
+    RESULT = "else if (" + be + ") {\n" + ss + "\n}";
+:} ;
+
+//SWITCH
+switch_statement ::= SWITCHCOND OPEN_PARENTHESIS exp_declaration:exp CLOSING_PARENTHESIS OPEN_BRACES switch_body:sb CLOSING_BRACES {:
+    RESULT = "switch (" + exp + "){\n" + sb + "\n}";
+:} ;
+
+switch_body ::= case_statement_list:csl {:
+    RESULT = csl;
+:} | epsilum {:
+    RESULT = "";
+:} ; 
+
+case_statement_list ::= case_statement_list:csl case_statement:cs {:
+    RESULT = csl + "\n" + cs;
+:} | case_statement:cs {:
+    RESULT = cs;
+:} ; 
+
+case_statement ::= CASECOND case_statement_types:cst DOUBLEPOINT scope_statement:ss {:
+    RESULT = "case " + cst + ":\n" + ss;
+:} ;
+
+case_statement_types ::= EXPNUMBER:numbr {:
+    RESULT = numbr;
+:} | STRING_LITERAL:sl {:
+    RESULT = sl;
+:} | CHAR_LITERAL:cl {:
+    RESULT = cl;
+:} ;
+
+// FOR LOOP
+for_statement ::= FORLOOP OPEN_PARENTHESIS for_declarations:fd CLOSING_PARENTHESIS OPEN_BRACES scope_statement:ss CLOSING_BRACES {:
+    RESULT = "for (" + fd + "){\n" + ss + "\n}";
+:} ;
+
+for_declarations::= for_initialization:fi SEMICOLON exp_declaration:ed SEMICOLON for_update:fu {:
+    RESULT = fi + " ; " + ed + " ; " + fu;
+:} ;
+
+for_initialization ::= for_var_type:fvt exp_var_name:evn EQUAL exp_declaration:ed {:
+    RESULT = fvt + " " + evn + "=" + ed;
+:} | exp_var_name:evn EQUAL exp_declaration:ed {:
+    RESULT = evn + " = " + ed; 
+:} ;
+
+for_var_type::= INTGR {:
+    RESULT = "int";
+:} | CHARA {:
+    RESULT = "char";
+:} | DOUBL {:
+    RESULT = "double";
+:} ;
+    
+for_update ::= exp_var_name:evn EQUAL exp_declaration:ed {:
+    RESULT = evn + " = " + ed;
+:} | exp_declaration:ed {:
+    RESULT = ed;
+:} ;
+
+//WHILE
+while_statement ::= WHILELOOP OPEN_PARENTHESIS exp_declaration:be CLOSING_PARENTHESIS OPEN_BRACES scope_statement:ss CLOSING_BRACES {:
+    RESULT = "while (" + be + ") {\n" + ss + "\n}";
+:};
+
+//DO WHILE
+do_while_statement ::= DOLOOP OPEN_PARENTHESIS scope_statement:ss CLOSING_PARENTHESIS WHILELOOP OPEN_PARENTHESIS exp_declaration:ed CLOSING_PARENTHESIS {:
+    RESULT = "do {\n" + ss + "\n} while ( " + ed + " )";
+:} ;
+
+// EPSILUM
+epsilum ::= /* Vacío */ {: 
+    RESULT = new Symbol(0); 
+:} ;
